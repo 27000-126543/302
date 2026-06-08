@@ -18,7 +18,7 @@ const NAV_ITEMS = [
 
 export default function Header() {
   const location = useLocation()
-  const { currentUser, isLoggedIn, logout } = useAuthStore()
+  const { currentUser, isLoggedIn, logout, addLog } = useAuthStore()
 
   return (
     <header className="fixed top-0 left-0 w-full h-14 bg-[#0a1628]/95 border-b border-cyan-500/20 backdrop-blur-md z-50 flex items-center px-5">
@@ -58,7 +58,21 @@ export default function Header() {
               {ROLE_LABELS[currentUser.role]}
             </span>
             <button
-              onClick={logout}
+              onClick={() => {
+                if (currentUser) {
+                  addLog({
+                    id: `log_${Date.now()}`,
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    action: '退出',
+                    target: '系统',
+                    timestamp: new Date().toISOString(),
+                    detail: `${currentUser.name}通过顶部导航退出系统`,
+                    sourcePage: '顶部导航栏',
+                  })
+                }
+                logout()
+              }}
               className="ml-1 p-1 rounded hover:bg-slate-700 transition-colors"
               title="退出登录"
             >

@@ -122,4 +122,9 @@ export interface OperationLog {
   target: string
   timestamp: string
   detail: string
+  sourcePage?: string
+  objectName?: string
+  beforeState?: string
+  afterState?: string
+  relatedWorkOrderId?: string
 }

@@ -3,6 +3,7 @@ import { Wrench, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
 import { useEquipmentStore } from '@/stores/useEquipmentStore'
 import { useGranaryStore } from '@/stores/useGranaryStore'
 import { useWorkOrderStore } from '@/stores/useWorkOrderStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import DataTable from '@/components/ui/DataTable'
 import StatsCard from '@/components/ui/StatsCard'
 
@@ -20,6 +21,7 @@ export default function EquipmentPage() {
   const granaries = useGranaryStore(s => s.granaries)
   const workOrders = useWorkOrderStore(s => s.workOrders)
   const addWorkOrder = useWorkOrderStore(s => s.addWorkOrder)
+  const { addLog, currentUser } = useAuthStore()
 
   const stats = useMemo(() => ({
     total: equipment.length,
@@ -34,9 +36,11 @@ export default function EquipmentPage() {
   )
 
   const handleGenerateOrder = (eq: typeof equipment[0]) => {
+    const beforeStatus = eq.status
     updateEquipment(eq.id, { status: 'maintenance' })
+    const woId = `wo_${Date.now()}`
     addWorkOrder({
-      id: `wo_${Date.now()}`,
+      id: woId,
       type: 'maintenance',
       granaryId: eq.granaryId,
       title: `${eq.name}检修工单`,
@@ -45,6 +49,20 @@ export default function EquipmentPage() {
       approvalStatus: 'pending',
       createdAt: new Date().toISOString(),
       deadline: new Date(Date.now() + 3 * 86400000).toISOString(),
+    })
+    addLog({
+      id: `log_${Date.now()}`,
+      userId: currentUser?.id ?? 'system',
+      userName: currentUser?.name ?? '系统',
+      action: '设备检修',
+      target: eq.name,
+      timestamp: new Date().toISOString(),
+      detail: `生成${eq.name}检修工单(${woId})，已运行${eq.runningHours}h超阈值${eq.maintenanceThreshold}h`,
+      sourcePage: '设备运维',
+      objectName: eq.name,
+      beforeState: beforeStatus,
+      afterState: 'maintenance',
+      relatedWorkOrderId: woId,
     })
   }
 

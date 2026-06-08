@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Shield, Users, FileText, LogIn, ScanFace, LogOut } from 'lucide-react';
+import { Shield, Users, FileText, LogIn, ScanFace, LogOut, Eye } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import DataTable from '@/components/ui/DataTable'
 import StatsCard from '@/components/ui/StatsCard'
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [showFaceDialog, setShowFaceDialog] = useState(false);
   const [faceScanStep, setFaceScanStep] = useState(0);
   const [actionFilter, setActionFilter] = useState('');
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -32,6 +33,8 @@ export default function AdminPage() {
     () => actionFilter ? logs.filter(l => l.action === actionFilter) : logs,
     [logs, actionFilter]
   );
+
+  const selectedLog = useMemo(() => logs.find(l => l.id === selectedLogId), [logs, selectedLogId]);
 
   const handleFaceLogin = () => {
     setShowFaceDialog(true);
@@ -52,6 +55,9 @@ export default function AdminPage() {
         target: '系统',
         timestamp: new Date().toISOString(),
         detail: `${user.name}通过人脸识别登录系统`,
+        sourcePage: '系统管理',
+        objectName: '系统登录',
+        afterState: '已登录',
       });
     }
     setShowFaceDialog(false);
@@ -68,6 +74,10 @@ export default function AdminPage() {
         target: '系统',
         timestamp: new Date().toISOString(),
         detail: `${currentUser.name}退出系统`,
+        sourcePage: '系统管理',
+        objectName: '系统登出',
+        beforeState: '已登录',
+        afterState: '已退出',
       });
     }
     logout();
@@ -82,12 +92,12 @@ export default function AdminPage() {
   const logColumns = [
     { key: 'userName', title: '用户' },
     { key: 'action', title: '操作', render: (v: string) => {
-      const cls = v === '登录' ? 'text-green-400' : v === '退出' ? 'text-yellow-400' : 'text-cyan-400';
-      return <span className={cls}>{v}</span>;
+      const colorMap: Record<string, string> = { '登录': 'text-green-400', '退出': 'text-yellow-400', '审批': 'text-purple-400', '设备检修': 'text-orange-400', '熏蒸审批': 'text-pink-400', '创建工单': 'text-cyan-400' };
+      return <span className={colorMap[v] ?? 'text-cyan-400'}>{v}</span>;
     }},
     { key: 'target', title: '对象' },
-    { key: 'timestamp', title: '时间', render: (v: string) => new Date(v).toLocaleString() },
-    { key: 'detail', title: '详情' },
+    { key: 'sourcePage', title: '来源', render: (v: string) => v ? <span className="text-xs text-gray-500">{v}</span> : <span className="text-xs text-gray-600">-</span> },
+    { key: 'timestamp', title: '时间', render: (v: string) => <span className="text-xs">{new Date(v).toLocaleString()}</span> },
   ];
 
   return (
@@ -121,9 +131,7 @@ export default function AdminPage() {
               </div>
             )}
           </div>
-
           <DataTable columns={userColumns} data={users} />
-
           <div className="bg-[#0d1f3c] rounded-xl p-5 border border-cyan-500/20">
             <h3 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2"><Shield size={16} /> 角色权限说明</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -146,12 +154,36 @@ export default function AdminPage() {
               <option value="登录">登录</option>
               <option value="退出">退出</option>
               <option value="审批">审批</option>
+              <option value="设备检修">设备检修</option>
+              <option value="熏蒸审批">熏蒸审批</option>
               <option value="创建工单">创建工单</option>
               <option value="修改">修改</option>
             </select>
             <span className="text-xs text-gray-500">共 {filteredLogs.length} 条记录</span>
           </div>
-          <DataTable columns={logColumns} data={filteredLogs} />
+          <DataTable columns={logColumns} data={filteredLogs} onRowClick={(row: any) => setSelectedLogId(row.id)} />
+        </div>
+      )}
+
+      {selectedLog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setSelectedLogId(null)}>
+          <div className="bg-[#0d1f3c] rounded-xl p-6 w-[520px] border border-cyan-500/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Eye size={18} className="text-cyan-400" /> 日志详情</h3>
+              <button onClick={() => setSelectedLogId(null)} className="text-gray-500 hover:text-white text-sm">✕</button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <DetailRow label="操作用户" value={selectedLog.userName} />
+              <DetailRow label="操作类型" value={selectedLog.action} />
+              <DetailRow label="操作对象" value={selectedLog.objectName ?? selectedLog.target} />
+              <DetailRow label="来源页面" value={selectedLog.sourcePage ?? '-'} />
+              <DetailRow label="操作前状态" value={selectedLog.beforeState ?? '-'} />
+              <DetailRow label="操作后状态" value={selectedLog.afterState ?? '-'} />
+              <DetailRow label="关联工单" value={selectedLog.relatedWorkOrderId ?? '-'} />
+              <DetailRow label="操作时间" value={new Date(selectedLog.timestamp).toLocaleString()} />
+              <DetailRow label="详细描述" value={selectedLog.detail} />
+            </div>
+          </div>
         </div>
       )}
 
@@ -180,4 +212,13 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3 py-1 border-b border-gray-800/50">
+      <span className="text-gray-500 w-24 shrink-0 text-right">{label}</span>
+      <span className="text-gray-200 flex-1">{value}</span>
+    </div>
+  )
 }

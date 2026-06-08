@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Bug, ShieldAlert, Clock, CheckCircle } from 'lucide-react'
 import { useGranaryStore } from '@/stores/useGranaryStore'
 import { useWorkOrderStore } from '@/stores/useWorkOrderStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import DataTable from '@/components/ui/DataTable'
 import ApprovalFlow from '@/components/ui/ApprovalFlow'
 import StatsCard from '@/components/ui/StatsCard'
@@ -32,6 +33,7 @@ export default function FumigationPage() {
   const workOrders = useWorkOrderStore(s => s.workOrders)
   const updateWorkOrderStatus = useWorkOrderStore(s => s.updateWorkOrderStatus)
   const addWorkOrder = useWorkOrderStore(s => s.addWorkOrder)
+  const { addLog, currentUser } = useAuthStore()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actingAs, setActingAs] = useState<string>('安全员')
@@ -51,16 +53,46 @@ export default function FumigationPage() {
 
   const handleApprove = () => {
     if (!selected) return
+    const prevStatus = selected.approvalStatus
     const nextStatus = getNextStatusOnApprove(selected.approvalStatus)
     updateWorkOrderStatus(selected.id, nextStatus as any)
     if (nextStatus === 'approved') {
       updateGranary(selected.granaryId, { fumigating: true })
     }
+    addLog({
+      id: `log_${Date.now()}`,
+      userId: currentUser?.id ?? 'system',
+      userName: currentUser?.name ?? '系统',
+      action: '熏蒸审批',
+      target: selected.title,
+      timestamp: new Date().toISOString(),
+      detail: `${actingAs}审批通过熏蒸工单${selected.id}，状态从${prevStatus}变更为${nextStatus}`,
+      sourcePage: '虫害熏蒸',
+      objectName: selected.title,
+      beforeState: prevStatus,
+      afterState: nextStatus,
+      relatedWorkOrderId: selected.id,
+    })
   }
 
   const handleReject = () => {
     if (!selected) return
+    const prevStatus = selected.approvalStatus
     updateWorkOrderStatus(selected.id, 'rejected')
+    addLog({
+      id: `log_${Date.now()}`,
+      userId: currentUser?.id ?? 'system',
+      userName: currentUser?.name ?? '系统',
+      action: '熏蒸审批',
+      target: selected.title,
+      timestamp: new Date().toISOString(),
+      detail: `${actingAs}驳回熏蒸工单${selected.id}`,
+      sourcePage: '虫害熏蒸',
+      objectName: selected.title,
+      beforeState: prevStatus,
+      afterState: 'rejected',
+      relatedWorkOrderId: selected.id,
+    })
   }
 
   const handleAutoGeneratePlan = (granaryId: string) => {
@@ -68,8 +100,9 @@ export default function FumigationPage() {
     if (!granary) return
     const existing = fumigationOrders.find(w => w.granaryId === granaryId && ['pending', 'pending_director', 'pending_depot_director'].includes(w.approvalStatus))
     if (existing) return
+    const woId = `FUM-${Date.now()}`
     addWorkOrder({
-      id: `FUM-${Date.now()}`,
+      id: woId,
       type: 'fumigation',
       granaryId,
       title: `${granary.name}熏蒸方案`,
@@ -78,6 +111,19 @@ export default function FumigationPage() {
       approvalStatus: 'pending',
       createdAt: new Date().toISOString(),
       deadline: new Date(Date.now() + 10 * 86400000).toISOString(),
+    })
+    addLog({
+      id: `log_${Date.now()}`,
+      userId: currentUser?.id ?? 'system',
+      userName: currentUser?.name ?? '系统',
+      action: '创建工单',
+      target: `${granary.name}熏蒸方案`,
+      timestamp: new Date().toISOString(),
+      detail: `自动生成${granary.name}熏蒸方案(${woId})，虫害密度${granary.pestDensity}头/kg`,
+      sourcePage: '虫害熏蒸',
+      objectName: granary.name,
+      afterState: 'pending',
+      relatedWorkOrderId: woId,
     })
   }
 

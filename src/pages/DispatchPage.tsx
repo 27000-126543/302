@@ -34,6 +34,23 @@ export default function DispatchPage() {
 
   const expansionOrders = useMemo(() => workOrders.filter(w => w.type === 'expansion'), [workOrders])
 
+  interface DispatchRecord {
+    id: string
+    type: 'in' | 'out'
+    product: string
+    quantity: number
+    qualityLevel: string
+    loadingSpeed: string
+    granaryName: string
+    granaryId: string
+    capacity: number
+    result: string
+    pathInfo: PathInfo
+    timestamp: string
+  }
+
+  const [dispatchHistory, setDispatchHistory] = useState<DispatchRecord[]>([])
+
   const stats = useMemo(() => {
     const today = new Date().toDateString()
     const todaysOrders = orders.filter(o => new Date(o.createdAt).toDateString() === today)
@@ -106,6 +123,13 @@ export default function DispatchPage() {
     }
     addOrder(order)
     updateGranary(match.id, { stock: match.stock + qty })
+    setDispatchHistory(prev => [...prev, {
+      id: order.id, type: 'in', product, quantity: qty, qualityLevel,
+      loadingSpeed: '0', granaryName: match.name, granaryId: match.id,
+      capacity: match.capacity, result: `匹配${match.name}（剩余${remaining}吨）`,
+      pathInfo: { from: { x: 50, y: 350 }, to: { x: 350, y: 150 }, granaryName: match.name },
+      timestamp: new Date().toISOString(),
+    }])
   }
 
   const handleOutboundMatch = () => {
@@ -139,6 +163,19 @@ export default function DispatchPage() {
       granaryId: match.id,
     }
     addOrder(order)
+    setDispatchHistory(prev => [...prev, {
+      id: order.id, type: 'out', product, quantity: qty, qualityLevel,
+      loadingSpeed, granaryName: match.name, granaryId: match.id,
+      capacity: match.capacity, result: `匹配${match.name}，流量${flowRate.toFixed(1)}t/h`,
+      pathInfo: { from: { x: 350, y: 150 }, to: { x: 50, y: 350 }, granaryName: match.name },
+      timestamp: new Date().toISOString(),
+    }])
+  }
+
+  const handleReplay = (record: DispatchRecord) => {
+    setTab(record.type === 'in' ? 'inbound' : 'outbound')
+    setPathInfo(record.pathInfo)
+    setResult({ granaryId: record.granaryId, message: record.result })
   }
 
   const columns = [
@@ -360,6 +397,35 @@ export default function DispatchPage() {
                   </div>
                   <p className="text-gray-300">{wo.title}</p>
                   <p className="text-gray-500 mt-1">{wo.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {dispatchHistory.length > 0 && (
+          <div className="bg-[#0d1f3c] rounded-xl p-4 border border-cyan-500/10">
+            <h4 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+              <Route size={14} /> 调度历史回放
+            </h4>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {dispatchHistory.map(rec => (
+                <div key={rec.id} className="bg-[#0a1628] rounded-lg p-3 text-xs cursor-pointer hover:bg-[#0d1f3c] transition-colors border border-transparent hover:border-cyan-500/20" onClick={() => handleReplay(rec)}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-cyan-400">{rec.id}</span>
+                    <span className={`px-1.5 py-0.5 rounded ${rec.type === 'in' ? 'bg-green-600/40 text-green-400' : 'bg-blue-600/40 text-blue-400'}`}>
+                      {rec.type === 'in' ? '入库' : '出库'}
+                    </span>
+                  </div>
+                  <p className="text-gray-300">{rec.product} {rec.quantity}吨 → {rec.granaryName}</p>
+                  <div className="flex gap-3 mt-1 text-gray-500">
+                    <span>容量: {rec.capacity}吨</span>
+                    {rec.type === 'out' && <span>装车: {rec.loadingSpeed}t/h</span>}
+                  </div>
+                  <p className="text-gray-500 mt-0.5">{new Date(rec.timestamp).toLocaleString()}</p>
+                  <button className="mt-1.5 px-2 py-0.5 bg-cyan-600/30 text-cyan-400 rounded text-[10px] hover:bg-cyan-600/50 transition-colors">
+                    ▶ 回放路线
+                  </button>
                 </div>
               ))}
             </div>
