@@ -1,9 +1,9 @@
 import { useAuthStore } from '@/stores/useAuthStore'
-import { ROLE_LABELS } from '@/utils/constants'
+import { ROLE_LABELS, ROLE_PERMISSIONS } from '@/utils/constants'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Warehouse, ArrowRightLeft, TestTube2, Bug,
-  Wrench, Shield, FileSpreadsheet, LogOut, User,
+  Wrench, Shield, FileSpreadsheet, LogOut, User, Lock,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -20,6 +20,32 @@ export default function Header() {
   const location = useLocation()
   const { currentUser, isLoggedIn, logout, addLog } = useAuthStore()
 
+  const hasPagePermission = (path: string): boolean => {
+    if (!isLoggedIn || !currentUser) return true
+    const perms = ROLE_PERMISSIONS[currentUser.role]
+    if (!perms) return true
+    return perms.pages.includes(path)
+  }
+
+  const handleUnauthorizedClick = (label: string) => {
+    if (!currentUser) return
+    addLog({
+      id: `log_${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      action: '越权访问',
+      target: label,
+      timestamp: new Date().toISOString(),
+      detail: `${currentUser.name}(${ROLE_LABELS[currentUser.role]})尝试访问【${label}】页面，权限不足已拦截`,
+      sourcePage: '顶部导航栏',
+      objectName: label,
+      beforeState: '无权限',
+      afterState: '已拦截',
+      targetId: currentUser.id,
+      targetType: 'user',
+    })
+  }
+
   return (
     <header className="fixed top-0 left-0 w-full h-14 bg-[#0a1628]/95 border-b border-cyan-500/20 backdrop-blur-md z-50 flex items-center px-5">
       <div className="flex items-center gap-2 shrink-0">
@@ -32,6 +58,25 @@ export default function Header() {
       <nav className="flex-1 flex items-center justify-center gap-1">
         {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
           const isActive = location.pathname === path
+          const permitted = hasPagePermission(path)
+
+          if (!permitted) {
+            return (
+              <div
+                key={path}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-t text-slate-600 cursor-not-allowed relative group"
+                onClick={() => handleUnauthorizedClick(label)}
+              >
+                <Icon size={14} />
+                <span>{label}</span>
+                <Lock size={10} className="text-slate-600" />
+                <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-red-900/90 text-red-300 text-[10px] rounded whitespace-nowrap hidden group-hover:block z-50">
+                  权限不足
+                </span>
+              </div>
+            )
+          }
+
           return (
             <Link
               key={path}
@@ -69,6 +114,10 @@ export default function Header() {
                     timestamp: new Date().toISOString(),
                     detail: `${currentUser.name}通过顶部导航退出系统`,
                     sourcePage: '顶部导航栏',
+                    objectName: '系统登出',
+                    beforeState: '已登录',
+                    afterState: '已退出',
+                    targetType: 'system',
                   })
                 }
                 logout()

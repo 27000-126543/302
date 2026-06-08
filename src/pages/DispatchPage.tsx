@@ -6,6 +6,8 @@ import { useOrderStore } from '@/stores/useOrderStore'
 import { useWorkOrderStore } from '@/stores/useWorkOrderStore'
 import { findBestGranaryForInbound, findBestGranaryForOutbound } from '@/utils/dispatchAlgorithm'
 import StatsCard from '@/components/ui/StatsCard'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { checkPermission } from '@/utils/constants'
 import DataTable from '@/components/ui/DataTable'
 
 type Tab = 'inbound' | 'outbound'
@@ -24,6 +26,8 @@ export default function DispatchPage() {
   const addOrder = useOrderStore(s => s.addOrder)
   const workOrders = useWorkOrderStore(s => s.workOrders)
   const addWorkOrder = useWorkOrderStore(s => s.addWorkOrder)
+  const currentUser = useAuthStore(s => s.currentUser)
+  const addLog = useAuthStore(s => s.addLog)
 
   const [product, setProduct] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -336,12 +340,42 @@ export default function DispatchPage() {
               <span className="text-xs text-gray-500">t/h</span>
             </div>
           )}
-          <button
-            className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'inbound' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            onClick={tab === 'inbound' ? handleInboundMatch : handleOutboundMatch}
-          >
-            {tab === 'inbound' ? '智能分配' : '匹配仓房'}
-          </button>
+          {(() => {
+            const action = tab === 'inbound' ? 'dispatch_inbound' : 'dispatch_outbound'
+            const permitted = !currentUser || checkPermission(currentUser.role, action)
+            return (
+              <button
+                className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                  permitted
+                    ? (tab === 'inbound' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700')
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => {
+                  if (!permitted && currentUser) {
+                    addLog({
+                      id: `log_${Date.now()}`,
+                      userId: currentUser.id,
+                      userName: currentUser.name,
+                      action: '越权访问',
+                      target: tab === 'inbound' ? '智能分配' : '匹配仓房',
+                      timestamp: new Date().toISOString(),
+                      detail: `${currentUser.name}(${currentUser.role})尝试执行${tab === 'inbound' ? '入库分配' : '出库匹配'}，权限不足`,
+                      sourcePage: '出入库调度',
+                      objectName: tab === 'inbound' ? '智能分配' : '匹配仓房',
+                      beforeState: '无权限',
+                      afterState: '已拦截',
+                      targetId: currentUser.id,
+                      targetType: 'user',
+                    })
+                    return
+                  }
+                  tab === 'inbound' ? handleInboundMatch() : handleOutboundMatch()
+                }}
+              >
+                {permitted ? (tab === 'inbound' ? '智能分配' : '匹配仓房') : `${tab === 'inbound' ? '智能分配' : '匹配仓房'} (需授权)`}
+              </button>
+            )
+          })()}
           {result && (
             <div className={`text-sm p-3 rounded-lg ${result.granaryId ? 'bg-green-900/30 border border-green-700/50' : 'bg-red-900/30 border border-red-700/50'}`}>
               <p className="font-medium">{result.message}</p>

@@ -4,6 +4,7 @@ import { useEquipmentStore } from '@/stores/useEquipmentStore'
 import { useGranaryStore } from '@/stores/useGranaryStore'
 import { useWorkOrderStore } from '@/stores/useWorkOrderStore'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { checkPermission } from '@/utils/constants'
 import DataTable from '@/components/ui/DataTable'
 import StatsCard from '@/components/ui/StatsCard'
 
@@ -127,8 +128,35 @@ export default function EquipmentPage() {
               <div className="flex items-center justify-between mt-3">
                 <span className="text-xs text-gray-500">所属仓房: {granary?.name ?? '-'}</span>
                 {needsMaintenance && (
-                  <button className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded text-xs font-medium transition-colors" onClick={() => handleGenerateOrder(eq)}>
-                    生成检修工单
+                  <button
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      !currentUser || checkPermission(currentUser.role, 'generate_maintenance_order')
+                        ? 'bg-orange-600 hover:bg-orange-700'
+                        : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                    onClick={() => {
+                      if (currentUser && !checkPermission(currentUser.role, 'generate_maintenance_order')) {
+                        addLog({
+                          id: `log_${Date.now()}`,
+                          userId: currentUser.id,
+                          userName: currentUser.name,
+                          action: '越权访问',
+                          target: '生成检修工单',
+                          timestamp: new Date().toISOString(),
+                          detail: `${currentUser.name}尝试生成检修工单，权限不足`,
+                          sourcePage: '设备运维',
+                          objectName: eq.name,
+                          beforeState: '无权限',
+                          afterState: '已拦截',
+                          targetId: currentUser.id,
+                          targetType: 'user',
+                        })
+                        return
+                      }
+                      handleGenerateOrder(eq)
+                    }}
+                  >
+                    {!currentUser || checkPermission(currentUser.role, 'generate_maintenance_order') ? '生成检修工单' : '生成检修工单 (需授权)'}
                   </button>
                 )}
               </div>

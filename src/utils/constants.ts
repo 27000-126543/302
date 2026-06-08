@@ -76,3 +76,50 @@ export const FACILITY_POSITIONS: Record<string, [number, number, number]> = {
   inspection_center: [-2, 0, -6],
   dispatch_center: [5, 0, -6],
 };
+
+export const PAGE_LABELS: Record<string, string> = {
+  '/': '全景总览',
+  '/dispatch': '出入库调度',
+  '/inspection': '检化验管理',
+  '/fumigation': '虫害熏蒸',
+  '/equipment': '设备运维',
+  '/admin': '权限日志',
+  '/report': '日报导出',
+}
+
+export const ACTION_LABELS: Record<string, string> = {
+  dispatch_inbound: '智能分配(入库)',
+  dispatch_outbound: '匹配仓房(出库)',
+  generate_maintenance_order: '生成检修工单',
+  approve_fumigation: '熏蒸审批',
+  approve_inspection: '检化验审批',
+  export_report: '导出日报',
+  create_workorder: '创建工单',
+  view_granary: '查看仓房详情',
+}
+
+export const ROLE_PERMISSIONS: Record<string, { pages: string[]; actions: string[] }> = {
+  operator: {
+    pages: ['/', '/dispatch', '/inspection', '/equipment'],
+    actions: ['dispatch_inbound', 'dispatch_outbound', 'generate_maintenance_order', 'view_granary'],
+  },
+  warehouse_director: {
+    pages: ['/', '/dispatch', '/inspection', '/fumigation', '/equipment', '/report'],
+    actions: ['dispatch_inbound', 'dispatch_outbound', 'generate_maintenance_order', 'view_granary', 'approve_fumigation', 'approve_inspection', 'export_report'],
+  },
+  depot_director: {
+    pages: ['/', '/dispatch', '/inspection', '/fumigation', '/equipment', '/admin', '/report'],
+    actions: ['*'],
+  },
+  superior: {
+    pages: ['/', '/admin', '/report'],
+    actions: ['view_granary', 'export_report'],
+  },
+}
+
+export function checkPermission(role: string, action: string): boolean {
+  const perms = ROLE_PERMISSIONS[role]
+  if (!perms) return false
+  if (perms.actions.includes('*')) return true
+  return perms.actions.includes(action)
+}

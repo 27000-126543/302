@@ -3,6 +3,8 @@ import { FileSpreadsheet, Download, Calendar, BarChart3 } from 'lucide-react';
 import { useGranaryStore } from '@/stores/useGranaryStore'
 import { useOrderStore } from '@/stores/useOrderStore'
 import { useEquipmentStore } from '@/stores/useEquipmentStore'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { checkPermission } from '@/utils/constants'
 import DataTable from '@/components/ui/DataTable'
 import StatsCard from '@/components/ui/StatsCard'
 import { exportDailyReport } from '@/utils/excelExport';
@@ -11,6 +13,8 @@ export default function ReportPage() {
   const { granaries } = useGranaryStore();
   const { orders } = useOrderStore();
   const { equipment } = useEquipmentStore();
+  const currentUser = useAuthStore(s => s.currentUser)
+  const addLog = useAuthStore(s => s.addLog)
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -84,8 +88,35 @@ export default function ReportPage() {
           <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors" onClick={() => {}}>
             <BarChart3 size={16} /> 预览日报
           </button>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors" onClick={handleExport}>
-            <Download size={16} /> 导出Excel
+          <button
+            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+              !currentUser || checkPermission(currentUser.role, 'export_report')
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            }`}
+            onClick={() => {
+              if (currentUser && !checkPermission(currentUser.role, 'export_report')) {
+                addLog({
+                  id: `log_${Date.now()}`,
+                  userId: currentUser.id,
+                  userName: currentUser.name,
+                  action: '越权访问',
+                  target: '导出日报',
+                  timestamp: new Date().toISOString(),
+                  detail: `${currentUser.name}尝试导出日报，权限不足`,
+                  sourcePage: '日报导出',
+                  objectName: '导出Excel',
+                  beforeState: '无权限',
+                  afterState: '已拦截',
+                  targetId: currentUser.id,
+                  targetType: 'user',
+                })
+                return
+              }
+              handleExport()
+            }}
+          >
+            <Download size={16} /> {!currentUser || checkPermission(currentUser.role, 'export_report') ? '导出Excel' : '导出Excel (需授权)'}
           </button>
         </div>
       </div>

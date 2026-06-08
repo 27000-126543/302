@@ -10,6 +10,7 @@ interface AuthState {
   login: (userId: string) => void
   logout: () => void
   addLog: (log: OperationLog) => void
+  switchUser: (userId: string) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -31,4 +32,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     set((state) => ({
       logs: [...state.logs, log],
     })),
+
+  switchUser: (userId) =>
+    set((state) => {
+      const user = state.users.find((u) => u.id === userId)
+      if (!user) return state
+      return { currentUser: user, isLoggedIn: true }
+    }),
 }))

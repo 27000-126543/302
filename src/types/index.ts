@@ -127,4 +127,6 @@ export interface OperationLog {
   beforeState?: string
   afterState?: string
   relatedWorkOrderId?: string
+  targetId?: string
+  targetType?: 'user' | 'granary' | 'workorder' | 'equipment' | 'system'
 }

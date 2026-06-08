@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import type { Granary, Order, Equipment } from '@/types'
+import type { Granary, Order, Equipment, OperationLog } from '@/types'
 
 interface DailyReportData {
   date: string
@@ -52,4 +52,23 @@ export function exportDailyReport(data: DailyReportData) {
   XLSX.utils.book_append_sheet(wb, ws3, '设备故障统计')
 
   XLSX.writeFile(wb, `粮库日报_${data.date}.xlsx`)
+}
+
+export function exportAuditLog(logs: OperationLog[]) {
+  const wb = XLSX.utils.book_new()
+  const data = logs.map(l => ({
+    '日志ID': l.id,
+    '操作用户': l.userName,
+    '操作类型': l.action,
+    '操作对象': l.objectName ?? l.target,
+    '来源页面': l.sourcePage ?? '',
+    '操作前状态': l.beforeState ?? '',
+    '操作后状态': l.afterState ?? '',
+    '关联工单': l.relatedWorkOrderId ?? '',
+    '操作时间': new Date(l.timestamp).toLocaleString('zh-CN'),
+    '详细描述': l.detail,
+  }))
+  const ws = XLSX.utils.json_to_sheet(data)
+  XLSX.utils.book_append_sheet(wb, ws, '审计日志')
+  XLSX.writeFile(wb, `审计日志_${new Date().toISOString().split('T')[0]}.xlsx`)
 }

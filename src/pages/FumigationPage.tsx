@@ -3,6 +3,7 @@ import { Bug, ShieldAlert, Clock, CheckCircle } from 'lucide-react'
 import { useGranaryStore } from '@/stores/useGranaryStore'
 import { useWorkOrderStore } from '@/stores/useWorkOrderStore'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { checkPermission } from '@/utils/constants'
 import DataTable from '@/components/ui/DataTable'
 import ApprovalFlow from '@/components/ui/ApprovalFlow'
 import StatsCard from '@/components/ui/StatsCard'
@@ -204,8 +205,48 @@ export default function FumigationPage() {
           <ApprovalFlow
             steps={APPROVAL_STEPS}
             currentStep={currentStep}
-            onApprove={handleApprove}
-            onReject={handleReject}
+            onApprove={() => {
+              if (currentUser && !checkPermission(currentUser.role, 'approve_fumigation')) {
+                addLog({
+                  id: `log_${Date.now()}`,
+                  userId: currentUser.id,
+                  userName: currentUser.name,
+                  action: '越权访问',
+                  target: '熏蒸审批',
+                  timestamp: new Date().toISOString(),
+                  detail: `${currentUser.name}尝试审批熏蒸工单，权限不足`,
+                  sourcePage: '虫害熏蒸',
+                  objectName: selected.title,
+                  beforeState: '无权限',
+                  afterState: '已拦截',
+                  targetId: currentUser.id,
+                  targetType: 'user',
+                })
+                return
+              }
+              handleApprove()
+            }}
+            onReject={() => {
+              if (currentUser && !checkPermission(currentUser.role, 'approve_fumigation')) {
+                addLog({
+                  id: `log_${Date.now()}`,
+                  userId: currentUser.id,
+                  userName: currentUser.name,
+                  action: '越权访问',
+                  target: '熏蒸审批',
+                  timestamp: new Date().toISOString(),
+                  detail: `${currentUser.name}尝试驳回熏蒸工单，权限不足`,
+                  sourcePage: '虫害熏蒸',
+                  objectName: selected.title,
+                  beforeState: '无权限',
+                  afterState: '已拦截',
+                  targetId: currentUser.id,
+                  targetType: 'user',
+                })
+                return
+              }
+              handleReject()
+            }}
             currentUserRole={actingAs}
           />
 
