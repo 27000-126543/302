@@ -16,6 +16,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 
 export default function EquipmentPage() {
   const equipment = useEquipmentStore(s => s.equipment)
+  const updateEquipment = useEquipmentStore(s => s.updateEquipment)
   const granaries = useGranaryStore(s => s.granaries)
   const workOrders = useWorkOrderStore(s => s.workOrders)
   const addWorkOrder = useWorkOrderStore(s => s.addWorkOrder)
@@ -33,6 +34,7 @@ export default function EquipmentPage() {
   )
 
   const handleGenerateOrder = (eq: typeof equipment[0]) => {
+    updateEquipment(eq.id, { status: 'maintenance' })
     addWorkOrder({
       id: `wo_${Date.now()}`,
       type: 'maintenance',

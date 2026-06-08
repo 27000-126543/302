@@ -10,9 +10,9 @@ export type OrderStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
 
 export type QualityLevel = '一等' | '二等' | '三等' | '等外'
 
-export type WorkOrderType = 'drying' | 'fumigation' | 'maintenance'
+export type WorkOrderType = 'drying' | 'fumigation' | 'maintenance' | 'expansion'
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'in_progress' | 'completed'
+export type ApprovalStatus = 'pending' | 'pending_director' | 'pending_depot_director' | 'approved' | 'rejected' | 'in_progress' | 'completed'
 
 export type EquipmentType = 'conveyor' | 'dryer' | 'fan'
 

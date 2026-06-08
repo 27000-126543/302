@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Shield, Users, FileText, LogIn, ScanFace } from 'lucide-react';
+import { Shield, Users, FileText, LogIn, ScanFace, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import DataTable from '@/components/ui/DataTable'
 import StatsCard from '@/components/ui/StatsCard'
@@ -15,7 +15,7 @@ const roleDescriptions: Record<string, string> = {
 };
 
 export default function AdminPage() {
-  const { users, logs, login, isLoggedIn, currentUser } = useAuthStore();
+  const { users, logs, login, logout, isLoggedIn, currentUser, addLog } = useAuthStore();
   const [tab, setTab] = useState<Tab>('users');
   const [showFaceDialog, setShowFaceDialog] = useState(false);
   const [faceScanStep, setFaceScanStep] = useState(0);
@@ -41,9 +41,36 @@ export default function AdminPage() {
   };
 
   const confirmFaceLogin = () => {
-    if (users.length > 0) login(users[0].id);
+    if (users.length > 0) {
+      const user = users[0];
+      login(user.id);
+      addLog({
+        id: `log_${Date.now()}`,
+        userId: user.id,
+        userName: user.name,
+        action: '登录',
+        target: '系统',
+        timestamp: new Date().toISOString(),
+        detail: `${user.name}通过人脸识别登录系统`,
+      });
+    }
     setShowFaceDialog(false);
     setFaceScanStep(0);
+  };
+
+  const handleLogout = () => {
+    if (currentUser) {
+      addLog({
+        id: `log_${Date.now()}`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        action: '退出',
+        target: '系统',
+        timestamp: new Date().toISOString(),
+        detail: `${currentUser.name}退出系统`,
+      });
+    }
+    logout();
   };
 
   const userColumns = [
@@ -54,14 +81,17 @@ export default function AdminPage() {
 
   const logColumns = [
     { key: 'userName', title: '用户' },
-    { key: 'action', title: '操作' },
+    { key: 'action', title: '操作', render: (v: string) => {
+      const cls = v === '登录' ? 'text-green-400' : v === '退出' ? 'text-yellow-400' : 'text-cyan-400';
+      return <span className={cls}>{v}</span>;
+    }},
     { key: 'target', title: '对象' },
     { key: 'timestamp', title: '时间', render: (v: string) => new Date(v).toLocaleString() },
     { key: 'detail', title: '详情' },
   ];
 
   return (
-    <div className="h-screen bg-gray-950 text-white p-6 overflow-y-auto">
+    <div className="h-full bg-[#050d1a] text-white p-6 overflow-y-auto">
       <h1 className="text-2xl font-bold mb-6">系统管理</h1>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -71,9 +101,9 @@ export default function AdminPage() {
         <StatsCard icon={<LogIn size={20} />} title="今日登录" value={stats.loginCount} />
       </div>
 
-      <div className="flex rounded-lg bg-gray-900 p-1 mb-6 w-64">
-        <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'users' ? 'bg-blue-600 text-white' : 'text-gray-400'}`} onClick={() => setTab('users')}>用户管理</button>
-        <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'logs' ? 'bg-blue-600 text-white' : 'text-gray-400'}`} onClick={() => setTab('logs')}>操作日志</button>
+      <div className="flex rounded-lg bg-[#0d1f3c] p-1 mb-6 w-64">
+        <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'users' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`} onClick={() => setTab('users')}>用户管理</button>
+        <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'logs' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`} onClick={() => setTab('logs')}>操作日志</button>
       </div>
 
       {tab === 'users' && (
@@ -83,17 +113,22 @@ export default function AdminPage() {
               <ScanFace size={16} /> 人脸识别登录
             </button>
             {isLoggedIn && currentUser && (
-              <span className="text-sm text-green-400">当前用户: {currentUser.name} ({ROLE_LABELS[currentUser.role]})</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-green-400">当前用户: {currentUser.name} ({ROLE_LABELS[currentUser.role]})</span>
+                <button className="px-3 py-1.5 bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-sm hover:bg-red-600/50 flex items-center gap-1 transition-colors" onClick={handleLogout}>
+                  <LogOut size={14} /> 退出登录
+                </button>
+              </div>
             )}
           </div>
 
           <DataTable columns={userColumns} data={users} />
 
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+          <div className="bg-[#0d1f3c] rounded-xl p-5 border border-cyan-500/20">
             <h3 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2"><Shield size={16} /> 角色权限说明</h3>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(roleDescriptions).map(([role, desc]) => (
-                <div key={role} className="bg-gray-800/60 rounded-lg p-3">
+                <div key={role} className="bg-[#0a1628] rounded-lg p-3">
                   <span className="text-sm font-medium text-white">{ROLE_LABELS[role]}</span>
                   <p className="text-xs text-gray-400 mt-1">{desc}</p>
                 </div>
@@ -106,9 +141,10 @@ export default function AdminPage() {
       {tab === 'logs' && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <select className="bg-gray-800 rounded-lg px-3 py-2 text-sm" value={actionFilter} onChange={e => setActionFilter(e.target.value)}>
+            <select className="bg-[#0d1f3c] rounded-lg px-3 py-2 text-sm border border-cyan-500/10" value={actionFilter} onChange={e => setActionFilter(e.target.value)}>
               <option value="">全部操作</option>
               <option value="登录">登录</option>
+              <option value="退出">退出</option>
               <option value="审批">审批</option>
               <option value="创建工单">创建工单</option>
               <option value="修改">修改</option>
@@ -121,13 +157,13 @@ export default function AdminPage() {
 
       {showFaceDialog && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowFaceDialog(false)}>
-          <div className="bg-gray-900 rounded-xl p-8 w-[360px] text-center border border-purple-700" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#0d1f3c] rounded-xl p-8 w-[360px] text-center border border-purple-700" onClick={e => e.stopPropagation()}>
             <ScanFace size={64} className="mx-auto mb-4 text-purple-400" />
             <h3 className="text-lg font-semibold mb-2">人脸识别验证</h3>
             {faceScanStep === 0 && <p className="text-sm text-gray-400">正在启动摄像头...</p>}
             {faceScanStep === 1 && (
               <div className="space-y-2">
-                <div className="w-32 h-32 mx-auto rounded-full border-4 border-purple-500 animate-pulse flex items-center justify-center bg-gray-800">
+                <div className="w-32 h-32 mx-auto rounded-full border-4 border-purple-500 animate-pulse flex items-center justify-center bg-[#0a1628]">
                   <span className="text-2xl">👤</span>
                 </div>
                 <p className="text-sm text-purple-400">正在扫描人脸...</p>

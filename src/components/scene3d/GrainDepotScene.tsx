@@ -1,14 +1,18 @@
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Stars, Environment } from '@react-three/drei'
+import { OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { useGranaryStore } from '@/stores/useGranaryStore'
+import { useEquipmentStore } from '@/stores/useEquipmentStore'
 import useAlertStore from '@/stores/useAlertStore'
 import FlatWarehouse from './FlatWarehouse'
 import SiloWarehouse from './SiloWarehouse'
 import DryingWorkshop from './DryingWorkshop'
 import InspectionCenter from './InspectionCenter'
 import DispatchCenter from './DispatchCenter'
+import ConveyorBridge from './ConveyorBridge'
+import ConveyorMachine from './ConveyorMachine'
+import DryerMachine from './DryerMachine'
 import FumigationZone from './FumigationZone'
 import PestAlertEffect from './PestAlertEffect'
 import Ground from './Ground'
@@ -19,12 +23,22 @@ interface GrainDepotSceneProps {
 
 function SceneContent({ onGranaryClick }: GrainDepotSceneProps) {
   const granaries = useGranaryStore(s => s.granaries)
+  const equipment = useEquipmentStore(s => s.equipment)
   const alerts = useAlertStore(s => s.alerts)
 
   const flatGranaries = granaries.filter(g => g.type === 'flat')
   const siloGranaries = granaries.filter(g => g.type === 'silo')
   const fumigatingGranaries = granaries.filter(g => g.fumigating)
   const pestAlertGranaries = granaries.filter(g => g.pestDensity > 5)
+
+  const conveyorBridges = [
+    { from: [-6, 2.5, 2] as [number, number, number], to: [-2.5, 2.5, 2] as [number, number, number] },
+    { from: [0.5, 2.5, 2] as [number, number, number], to: [4, 2.5, 2] as [number, number, number] },
+    { from: [7.5, 2.5, 2] as [number, number, number], to: [11, 2.5, 2] as [number, number, number] },
+    { from: [11, 2.5, 2] as [number, number, number], to: [14, 2.5, 4] as [number, number, number] },
+    { from: [-10, 2.5, -4] as [number, number, number], to: [-6, 2.5, 2] as [number, number, number] },
+    { from: [-10, 2.5, -4] as [number, number, number], to: [-2, 2.5, -5] as [number, number, number] },
+  ]
 
   return (
     <>
@@ -46,6 +60,26 @@ function SceneContent({ onGranaryClick }: GrainDepotSceneProps) {
       <DryingWorkshop />
       <InspectionCenter />
       <DispatchCenter />
+
+      {conveyorBridges.map((bridge, i) => (
+        <ConveyorBridge key={`cb_${i}`} from={bridge.from} to={bridge.to} />
+      ))}
+
+      {equipment.filter(e => e.type === 'conveyor').map(eq => (
+        <ConveyorMachine
+          key={eq.id}
+          position={[eq.position[0], 0, eq.position[2] + 2.5]}
+          needsMaintenance={eq.runningHours >= eq.maintenanceThreshold}
+        />
+      ))}
+
+      {equipment.filter(e => e.type === 'dryer').map(eq => (
+        <DryerMachine
+          key={eq.id}
+          position={eq.position}
+          needsMaintenance={eq.runningHours >= eq.maintenanceThreshold}
+        />
+      ))}
 
       {fumigatingGranaries.map(g => (
         <FumigationZone
